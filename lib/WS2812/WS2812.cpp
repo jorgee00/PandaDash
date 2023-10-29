@@ -1,0 +1,69 @@
+#include "WS2812.hpp"
+#include "generated/WS2812.pio.h"
+
+//#define DEBUG
+
+#ifdef DEBUG
+#include <stdio.h>
+#endif
+
+WS2812::WS2812(uint pin, uint length, PIO pio, uint sm)  {
+    initialize(pin, length, pio, sm);
+}
+
+WS2812::~WS2812() {
+    
+}
+
+void WS2812::initialize(uint pin, uint length, PIO pio, uint sm) {
+    this->pin = pin;
+    this->length = length;
+    this->pio = pio;
+    this->sm = sm;
+    this->data = new uint32_t[length];
+    fill(RGB(0,0,0));
+    uint offset = pio_add_program(pio, &ws2812_program);
+    #ifdef DEBUG
+    printf("WS2812 / Initializing SM %u with offset %X at pin %u and %u data bits...\n", sm, offset, pin, 20);
+    #endif
+    ws2812_program_init(pio, sm, offset, pin, 800000);
+}
+
+void WS2812::setPixelColor(uint index, uint32_t color) {
+    if (index < length) {
+        data[index] = color<<8u;
+    }
+}
+
+void WS2812::setPixelColor(uint index, uint8_t red, uint8_t green, uint8_t blue) {
+    setPixelColor(index, RGB(red, green, blue));
+}
+
+void WS2812::fill(uint32_t color) {
+    fill(color, 0, length);
+}
+
+void WS2812::fill(uint32_t color, uint first) {
+    fill(color, first, length-first);
+}
+
+void WS2812::fill(uint32_t color, uint first, uint count) {
+    uint last = (first + count);
+    if (last > length) {
+        last = length;
+    }
+    for (uint i = first; i < last; i++) {
+        data[i] = color;
+    }
+}
+
+void WS2812::show() {
+    #ifdef DEBUG
+    for (uint i = 0; i < length; i++) {
+        printf("WS2812 / Put data: %08X\n", data[i]);
+    }
+    #endif
+    for (uint i = 0; i < length; i++) {
+        pio_sm_put_blocking(pio, sm, data[i]);
+    }
+}
